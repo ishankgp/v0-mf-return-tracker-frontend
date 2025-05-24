@@ -9,16 +9,48 @@ import { cn } from "@/lib/utils"
 import { NotesSection } from "@/components/notes-section"
 import { fetchMutualFundData, refreshMutualFundData } from "@/services/api"
 
+interface MutualFund {
+  id: string
+  name: string
+  nav: number
+  returns1d: number
+  returns1w: number
+  returns1m: number
+  returns3m: number
+  returns6m: number
+  returns1y: number
+  returns3y: number
+  returns5y: number
+  category: string
+  risk: "Low" | "Medium" | "High"
+}
+
+type SortKey = keyof MutualFund
+type SortOrder = "asc" | "desc"
+
 export default function Home() {
-  const [funds, setFunds] = useState([])
-  const [sortKey, setSortKey] = useState("name")
-  const [sortOrder, setSortOrder] = useState("asc")
+  const [funds, setFunds] = useState<MutualFund[]>([])
+  const [sortKey, setSortKey] = useState<SortKey>("name")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
   const [isLoading, setIsLoading] = useState(true)
-  const [lastUpdated, setLastUpdated] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
   // Fetch data on component mount
   useEffect(() => {
-    loadFundData()
+    async function fetchFunds() {
+      setIsLoading(true)
+      try {
+        const res = await fetch("http://127.0.0.1:5000/api/funds")
+        const data: any = await res.json()
+        setFunds(data.funds)
+        setLastUpdated(new Date().toISOString())
+      } catch (err) {
+        console.error("Failed to fetch fund data:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchFunds()
   }, [])
 
   // Function to load fund data
@@ -27,7 +59,7 @@ export default function Home() {
     try {
       const data = await fetchMutualFundData()
       setFunds(data.funds || [])
-      setLastUpdated(new Date())
+      setLastUpdated(new Date().toISOString())
     } catch (err) {
       console.error("Failed to fetch fund data:", err)
     } finally {
@@ -42,7 +74,7 @@ export default function Home() {
       await refreshMutualFundData()
       const data = await fetchMutualFundData()
       setFunds(data.funds || [])
-      setLastUpdated(new Date())
+      setLastUpdated(new Date().toISOString())
     } catch (err) {
       console.error("Failed to refresh fund data:", err)
     } finally {
@@ -124,64 +156,6 @@ export default function Home() {
 
   return (
     <div className="container mx-auto py-10">
-      <div className="grid gap-6 mb-8 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Funds</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{funds.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Best Performer (1Y)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {funds.length > 0 ? (
-              <>
-                <div className="text-2xl font-bold text-green-600">
-                  +{Math.max(...funds.map((fund) => fund.returns1y || 0)).toFixed(2)}%
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {
-                    funds.reduce(
-                      (best, fund) => ((fund.returns1y || 0) > (best.returns1y || 0) ? fund : best),
-                      funds[0],
-                    ).name
-                  }
-                </p>
-              </>
-            ) : (
-              <div className="text-2xl font-bold">-</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Average Returns (1Y)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {funds.length > 0 ? (
-              <div className="text-2xl font-bold">
-                {(funds.reduce((sum, fund) => sum + (fund.returns1y || 0), 0) / funds.length).toFixed(2)}%
-              </div>
-            ) : (
-              <div className="text-2xl font-bold">-</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-gray-600">Last Updated</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{lastUpdated ? formatDate(lastUpdated).split(",")[0] : "Never"}</div>
-            <p className="text-xs text-gray-500 mt-1">{lastUpdated ? formatDate(lastUpdated).split(",")[1] : ""}</p>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -324,6 +298,65 @@ export default function Home() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Move summary cards here */}
+      <div className="grid gap-6 mt-8 mb-8 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Total Funds</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{funds.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Best Performer (1Y)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {funds.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold text-green-600">
+                  +{Math.max(...funds.map((fund) => fund.returns1y || 0)).toFixed(2)}%
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {
+                    funds.reduce(
+                      (best, fund) => ((fund.returns1y || 0) > (best.returns1y || 0) ? fund : best),
+                      funds[0],
+                    ).name
+                  }
+                </p>
+              </>
+            ) : (
+              <div className="text-2xl font-bold">-</div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Average Returns (1Y)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {funds.length > 0 ? (
+              <div className="text-2xl font-bold">
+                {(funds.reduce((sum, fund) => sum + (fund.returns1y || 0), 0) / funds.length).toFixed(2)}%
+              </div>
+            ) : (
+              <div className="text-2xl font-bold">-</div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-gray-600">Last Updated</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{lastUpdated ? formatDate(new Date(lastUpdated)).split(",")[0] : "Never"}</div>
+            <p className="text-xs text-gray-500 mt-1">{lastUpdated ? formatDate(new Date(lastUpdated)).split(",")[1] : ""}</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Notes Section at the bottom of the page */}
       <div className="mt-8">
