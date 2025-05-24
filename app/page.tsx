@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils"
 import { NotesSection } from "@/components/notes-section"
 import { fetchMutualFundData, refreshMutualFundData } from "@/services/api"
 
+interface MutualFundResponse {
+  funds: MutualFund[]
+}
+
 interface MutualFund {
   id: string
   name: string
@@ -23,10 +27,20 @@ interface MutualFund {
   returns5y: number
   category: string
   risk: "Low" | "Medium" | "High"
+  dates?: Record<string, string>
+  current_date?: string
 }
 
 type SortKey = keyof MutualFund
 type SortOrder = "asc" | "desc"
+
+// Helper to parse DD-MM-YYYY date strings
+function parseDMY(dateStr?: string) {
+  if (!dateStr || typeof dateStr !== "string") return undefined;
+  const [day, month, year] = dateStr.split("-");
+  if (!day || !month || !year) return undefined;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+}
 
 export default function Home() {
   const [funds, setFunds] = useState<MutualFund[]>([])
@@ -41,7 +55,7 @@ export default function Home() {
       setIsLoading(true)
       try {
         const res = await fetch("http://127.0.0.1:5000/api/funds")
-        const data: any = await res.json()
+        const data = (await res.json()) as MutualFundResponse
         setFunds(data.funds)
         setLastUpdated(new Date().toISOString())
       } catch (err) {
@@ -57,7 +71,7 @@ export default function Home() {
   const loadFundData = async () => {
     setIsLoading(true)
     try {
-      const data = await fetchMutualFundData()
+      const data = await fetchMutualFundData() as MutualFundResponse
       setFunds(data.funds || [])
       setLastUpdated(new Date().toISOString())
     } catch (err) {
@@ -82,12 +96,12 @@ export default function Home() {
     }
   }
 
-  const handleSort = (key) => {
+  const handleSort = (key: keyof MutualFund) => {
     setSortKey(key)
     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
   }
 
-  const getReturnColor = (value) => {
+  const getReturnColor = (value: number) => {
     if (value > 0) {
       return "text-green-500"
     } else if (value < 0) {
@@ -97,7 +111,7 @@ export default function Home() {
     }
   }
 
-  const formatDate = (date) => {
+  const formatDate = (date: Date) => {
     if (!date) return "Never"
     return new Intl.DateTimeFormat("en-US", {
       dateStyle: "medium",
@@ -175,65 +189,110 @@ export default function Home() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">
+                  <TableHead className="w-[250px] sticky left-0 bg-white">
                     <Button variant="ghost" onClick={() => handleSort("name")} className="h-auto p-0 font-medium">
                       Fund Name
                       <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("nav")} className="h-auto p-0 font-medium">
-                      NAV
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("nav")} className="h-auto p-0 font-medium">
+                        Current NAV
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.current || funds[0]?.current_date)?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns1d")} className="h-auto p-0 font-medium">
-                      1D
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns1d")} className="h-auto p-0 font-medium">
+                        1 Day
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["1day"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns1w")} className="h-auto p-0 font-medium">
-                      1W
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns1w")} className="h-auto p-0 font-medium">
+                        1 Week
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["1week"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns1m")} className="h-auto p-0 font-medium">
-                      1M
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns1m")} className="h-auto p-0 font-medium">
+                        1 Month
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["1month"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns3m")} className="h-auto p-0 font-medium">
-                      3M
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns3m")} className="h-auto p-0 font-medium">
+                        3 Months
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["3month"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns6m")} className="h-auto p-0 font-medium">
-                      6M
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns6m")} className="h-auto p-0 font-medium">
+                        6 Months
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["6month"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns1y")} className="h-auto p-0 font-medium">
-                      1Y
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns1y")} className="h-auto p-0 font-medium">
+                        1 Year
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["1year"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns3y")} className="h-auto p-0 font-medium">
-                      3Y
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns3y")} className="h-auto p-0 font-medium">
+                        3 Years
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["3year"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
-                  <TableHead className="text-right">
-                    <Button variant="ghost" onClick={() => handleSort("returns5y")} className="h-auto p-0 font-medium">
-                      5Y
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
+                  <TableHead>
+                    <div className="flex flex-col items-center">
+                      <Button variant="ghost" onClick={() => handleSort("returns5y")} className="h-auto p-0 font-medium">
+                        5 Years
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {parseDMY(funds[0]?.dates?.["5year"])?.toLocaleDateString('en-GB') || ""}
+                      </span>
+                    </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
